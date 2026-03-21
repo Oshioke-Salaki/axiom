@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { createPublicClient, http, parseAbi } from "viem";
+import { createPublicClient, createWalletClient, custom, http, parseAbi } from "viem";
 import { baseSepolia } from "viem/chains";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -56,6 +56,16 @@ const REPUTATION_ABI = [
 ] as const;
 
 const REGISTRY_ABI = [
+  {
+    name: "register", type: "function",
+    inputs: [
+      { name: "agentAddress", type: "address" },
+      { name: "name",         type: "string"  },
+      { name: "agentType",    type: "string"  },
+      { name: "constitutionCID", type: "string" },
+    ],
+    outputs: [], stateMutability: "nonpayable",
+  },
   {
     name: "getAgent", type: "function",
     inputs: [{ name: "agentAddress", type: "address" }],
@@ -492,6 +502,229 @@ function CovenantCard({ c, dark }: { c: LiveCovenant; dark: boolean }) {
   );
 }
 
+// ─── Register Agent Modal ─────────────────────────────────────────────────────
+const AGENT_TYPES = ["sentiment", "onchain-data", "orchestrator", "executor", "risk-management", "arbitrage", "other"];
+
+type RegStep = "form" | "storing" | "confirm" | "registering" | "done" | "error";
+
+function RegisterAgentModal({ dark, walletAddress, onClose, onSuccess }: {
+  dark: boolean;
+  walletAddress: string;
+  onClose: () => void;
+  onSuccess: (name: string, address: string) => void;
+}) {
+  const [step,         setStep]         = useState<RegStep>("form");
+  const [name,         setName]         = useState("");
+  const [agentType,    setAgentType]    = useState("sentiment");
+  const [capabilities, setCapabilities] = useState("");
+  const [restrictions, setRestrictions] = useState("");
+  const [cid,          setCID]          = useState("");
+  const [txHash,       setTxHash]       = useState("");
+  const [error,        setError]        = useState("");
+
+  const border  = dark ? "border-[#2a2a2a]"   : "border-gray-100";
+  const surface = dark ? "bg-[#141414]"        : "bg-white";
+  const input   = dark ? "bg-[#0c0c0c] border-[#2a2a2a] text-[#f0f0f0] placeholder-[#444]" : "bg-white border-gray-200 text-gray-900 placeholder-gray-300";
+  const muted   = dark ? "text-[#666]"         : "text-gray-400";
+  const label   = dark ? "text-[#aaa]"         : "text-gray-600";
+  const btn     = dark ? "bg-white text-black hover:bg-gray-100" : "bg-black text-white hover:bg-gray-800";
+
+  async function handleStore() {
+    if (!name.trim()) return;
+    setStep("storing");
+    try {
+      const res = await fetch("/api/store-constitution", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          agentType,
+          capabilities: capabilities.split("\n").map((s) => s.trim()).filter(Boolean),
+          restrictions:  restrictions.split("\n").map((s) => s.trim()).filter(Boolean),
+          author: walletAddress,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Store failed");
+      setCID(data.cid);
+      setStep("confirm");
+    } catch (e: any) {
+      setError(e.message); setStep("error");
+    }
+  }
+
+  async function handleRegister() {
+    setStep("registering");
+    try {
+      if (typeof window === "undefined" || !(window as any).ethereum) throw new Error("MetaMask not found");
+      const { createWalletClient, custom } = await import("viem");
+      const { baseSepolia } = await import("viem/chains");
+
+      const wallet = createWalletClient({ chain: baseSepolia, transport: custom((window as any).ethereum) });
+      const [account] = await wallet.requestAddresses();
+
+      const hash = await wallet.writeContract({
+        address:      CONTRACTS.REGISTRY,
+        abi:          REGISTRY_ABI,
+        functionName: "register",
+        args:         [account, name.trim(), agentType, cid],
+        account,
+        chain:        baseSepolia,
+      });
+
+      setTxHash(hash);
+      setStep("done");
+      onSuccess(name.trim(), account);
+    } catch (e: any) {
+      setError(e.message); setStep("error");
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className={`w-full max-w-lg rounded-2xl border shadow-2xl ${surface} ${border}`}>
+        {/* Header */}
+        <div className={`px-6 py-4 border-b flex items-center justify-between ${border}`}>
+          <div>
+            <h2 className="font-semibold text-sm">Register Your Agent</h2>
+            <p className={`text-xs mt-0.5 ${muted}`}>Anchor your agent identity on Base Sepolia</p>
+          </div>
+          <button onClick={onClose} className={`text-xl leading-none transition-colors ${dark ? "text-[#555] hover:text-white" : "text-gray-300 hover:text-gray-800"}`}>×</button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {/* Step indicator */}
+          <div className="flex items-center gap-2 mb-2">
+            {(["form", "storing", "confirm", "registering", "done"] as RegStep[]).map((s, i) => (
+              <div key={s} className="flex items-center gap-2">
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-mono transition-colors ${
+                  step === s ? (dark ? "bg-white text-black" : "bg-black text-white") :
+                  ["done"].includes(step) || (["confirm","registering","done"].includes(step) && i < 2) || (["registering","done"].includes(step) && i < 3) || (step === "done" && i < 4)
+                    ? "bg-emerald-500 text-white"
+                    : dark ? "bg-[#2a2a2a] text-[#555]" : "bg-gray-100 text-gray-300"
+                }`}>{i + 1}</div>
+                {i < 4 && <div className={`h-px w-6 ${dark ? "bg-[#2a2a2a]" : "bg-gray-100"}`} />}
+              </div>
+            ))}
+            <span className={`ml-1 text-xs font-mono ${muted}`}>
+              {step === "form" ? "Details" : step === "storing" ? "Storing…" : step === "confirm" ? "Confirm" : step === "registering" ? "Registering…" : step === "done" ? "Done!" : "Error"}
+            </span>
+          </div>
+
+          {/* FORM */}
+          {step === "form" && (
+            <div className="space-y-4">
+              <div>
+                <label className={`text-xs font-mono mb-1.5 block ${label}`}>Agent Name *</label>
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Alpha-1"
+                  className={`w-full px-3 py-2 text-sm rounded-lg border outline-none font-mono ${input}`} />
+              </div>
+              <div>
+                <label className={`text-xs font-mono mb-1.5 block ${label}`}>Agent Type *</label>
+                <select value={agentType} onChange={(e) => setAgentType(e.target.value)}
+                  className={`w-full px-3 py-2 text-sm rounded-lg border outline-none font-mono ${input}`}>
+                  {AGENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={`text-xs font-mono mb-1.5 block ${label}`}>Capabilities <span className={muted}>(one per line)</span></label>
+                <textarea value={capabilities} onChange={(e) => setCapabilities(e.target.value)} rows={3}
+                  placeholder={"sentiment analysis\nwill NOT fabricate data"}
+                  className={`w-full px-3 py-2 text-sm rounded-lg border outline-none font-mono resize-none ${input}`} />
+              </div>
+              <div>
+                <label className={`text-xs font-mono mb-1.5 block ${label}`}>Restrictions <span className={muted}>(one per line)</span></label>
+                <textarea value={restrictions} onChange={(e) => setRestrictions(e.target.value)} rows={2}
+                  placeholder={"will NOT exceed covenant scope\nwill ALWAYS commit reasoning first"}
+                  className={`w-full px-3 py-2 text-sm rounded-lg border outline-none font-mono resize-none ${input}`} />
+              </div>
+              <div className={`rounded-lg p-3 text-xs font-mono ${dark ? "bg-[#0c0c0c] text-[#666]" : "bg-gray-50 text-gray-400"}`}>
+                Wallet: {walletAddress ? `${walletAddress.slice(0, 20)}…` : "not connected"}
+              </div>
+              <button onClick={handleStore} disabled={!name.trim()}
+                className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 ${btn}`}>
+                Store Constitution on Filecoin →
+              </button>
+            </div>
+          )}
+
+          {/* STORING */}
+          {step === "storing" && (
+            <div className="py-8 flex flex-col items-center gap-3">
+              <Spinner />
+              <p className={`text-sm ${muted}`}>Storing constitution on Filecoin…</p>
+            </div>
+          )}
+
+          {/* CONFIRM */}
+          {step === "confirm" && (
+            <div className="space-y-4">
+              <div className={`rounded-lg p-4 space-y-2 ${dark ? "bg-blue-950/30" : "bg-blue-50"}`}>
+                <div className="text-xs text-blue-500 font-mono mb-2">Constitution stored on Filecoin ✓</div>
+                <div className={`flex justify-between text-xs font-mono ${label}`}><span>Name</span><span className="font-semibold">{name}</span></div>
+                <div className={`flex justify-between text-xs font-mono ${label}`}><span>Type</span><span>{agentType}</span></div>
+                <div className={`flex justify-between text-xs font-mono ${label}`}><span>CID</span><span className="text-blue-500 truncate max-w-[200px]">{cid}</span></div>
+                <div className={`flex justify-between text-xs font-mono ${label}`}><span>Address</span><span>{walletAddress.slice(0, 18)}…</span></div>
+              </div>
+              <p className={`text-xs ${muted}`}>This will call <span className="font-mono">register()</span> on the AgentRegistry contract. You'll sign one transaction in MetaMask.</p>
+              <button onClick={handleRegister}
+                className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors ${btn}`}>
+                Register On-chain via MetaMask →
+              </button>
+            </div>
+          )}
+
+          {/* REGISTERING */}
+          {step === "registering" && (
+            <div className="py-8 flex flex-col items-center gap-3">
+              <Spinner />
+              <p className={`text-sm ${muted}`}>Waiting for MetaMask confirmation…</p>
+            </div>
+          )}
+
+          {/* DONE */}
+          {step === "done" && (
+            <div className="space-y-4 py-2">
+              <div className="flex flex-col items-center gap-2 py-4">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-500 text-xl">✓</div>
+                <h3 className="font-semibold font-mono">{name} registered</h3>
+                <p className={`text-xs text-center ${muted}`}>Your agent is now on-chain with a Filecoin-backed constitution</p>
+              </div>
+              <div className={`rounded-lg p-4 space-y-2 ${dark ? "bg-emerald-950/20" : "bg-emerald-50"}`}>
+                <div className="text-xs text-emerald-500 font-mono mb-1">On-chain proof</div>
+                <div className={`text-xs font-mono ${label}`}>Constitution CID</div>
+                <a href={`https://ipfs.io/ipfs/${cid}`} target="_blank" rel="noopener noreferrer"
+                   className="text-xs font-mono text-blue-500 hover:underline block truncate">{cid} ↗</a>
+                <div className={`text-xs font-mono mt-2 ${label}`}>Transaction</div>
+                <a href={`https://sepolia.basescan.org/tx/${txHash}`} target="_blank" rel="noopener noreferrer"
+                   className="text-xs font-mono text-blue-500 hover:underline block truncate">{txHash} ↗</a>
+              </div>
+              <button onClick={onClose}
+                className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors ${btn}`}>
+                Done
+              </button>
+            </div>
+          )}
+
+          {/* ERROR */}
+          {step === "error" && (
+            <div className="space-y-4">
+              <div className={`rounded-lg p-4 ${dark ? "bg-red-950/30" : "bg-red-50"}`}>
+                <div className="text-xs text-red-500 font-mono mb-1">Error</div>
+                <p className="text-sm text-red-500">{error}</p>
+              </div>
+              <button onClick={() => setStep("form")}
+                className={`w-full py-2.5 rounded-lg text-sm font-medium transition-colors ${btn}`}>
+                Try Again
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function Home() {
   const [dark, setDark] = useState(false);
@@ -507,6 +740,31 @@ export default function Home() {
       return !d;
     });
   };
+
+  // Wallet
+  const [walletAddress,   setWalletAddress]   = useState("");
+  const [showRegister,    setShowRegister]     = useState(false);
+
+  const connectWallet = useCallback(async () => {
+    if (typeof window === "undefined" || !(window as any).ethereum) {
+      alert("MetaMask not found. Please install MetaMask.");
+      return;
+    }
+    try {
+      const { createWalletClient, custom } = await import("viem");
+      const { baseSepolia } = await import("viem/chains");
+      const wallet = createWalletClient({ chain: baseSepolia, transport: custom((window as any).ethereum) });
+      const [address] = await wallet.requestAddresses();
+      setWalletAddress(address);
+      // Ask MetaMask to switch to Base Sepolia
+      try {
+        await (window as any).ethereum.request({
+          method: "wallet_switchEthereumChain",
+          params: [{ chainId: "0x14a34" }], // 84532
+        });
+      } catch {}
+    } catch {}
+  }, []);
 
   const [activeTab,    setActiveTab]    = useState<"pipeline" | "live" | "agents" | "covenants">("pipeline");
   const [terminalAsset, setTerminalAsset] = useState<string | null>(null);
@@ -585,6 +843,17 @@ export default function Home() {
   return (
     <div className={`min-h-screen font-sans transition-colors duration-200 ${bg} ${dark ? "dark" : ""}`}>
       {terminalAsset && <TerminalModal asset={terminalAsset} onClose={() => setTerminalAsset(null)} />}
+      {showRegister && (
+        <RegisterAgentModal
+          dark={dark}
+          walletAddress={walletAddress}
+          onClose={() => setShowRegister(false)}
+          onSuccess={(name, address) => {
+            setShowRegister(false);
+            refresh();
+          }}
+        />
+      )}
 
       {/* ── Header ── */}
       <header className={`border-b sticky top-0 z-20 backdrop-blur-sm ${hdr}`}>
@@ -613,6 +882,23 @@ export default function Home() {
               className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors ${dark ? "border-[#2a2a2a] text-[#888] hover:text-white hover:border-[#444]" : "border-gray-200 text-gray-400 hover:text-black hover:border-gray-400"}`}>
               {dark ? <SunIcon /> : <MoonIcon />}
             </button>
+            {/* Wallet + Register */}
+            {walletAddress ? (
+              <div className="flex items-center gap-2">
+                <button onClick={() => setShowRegister(true)}
+                  className={`text-xs px-3 py-1.5 rounded border font-medium transition-colors ${dark ? "border-[#2a2a2a] text-[#ccc] hover:border-[#555] hover:text-white" : "border-gray-200 text-gray-600 hover:border-gray-400 hover:text-black"}`}>
+                  + Register Agent
+                </button>
+                <span className={`text-xs font-mono px-2 py-1.5 rounded border ${dark ? "border-[#2a2a2a] text-[#666]" : "border-gray-100 text-gray-400"}`}>
+                  {walletAddress.slice(0, 6)}…{walletAddress.slice(-4)}
+                </span>
+              </div>
+            ) : (
+              <button onClick={connectWallet}
+                className={`text-xs px-3 py-1.5 rounded border font-medium transition-colors ${dark ? "border-[#2a2a2a] text-[#888] hover:text-white hover:border-[#444]" : "border-gray-200 text-gray-500 hover:text-black hover:border-gray-400"}`}>
+                Connect Wallet
+              </button>
+            )}
             <PipelineLauncher dark={dark} onLaunch={(asset) => { setSelectedAsset(asset); setTerminalAsset(asset); }} />
           </div>
         </div>
