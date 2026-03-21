@@ -3,7 +3,9 @@ import { privateKeyToAccount } from "viem/accounts";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-export async function GET() {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const asset = (searchParams.get("asset") ?? "ETH").toUpperCase().slice(0, 12);
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -34,7 +36,7 @@ export async function GET() {
           // Dry-run mode — real LLM, real Filecoin sim, no on-chain txs
           // ----------------------------------------------------------------
           const { runDryPipeline } = await import("@/src/lib/agents/pipeline");
-          await runDryPipeline();
+          await runDryPipeline(asset);
         } else {
           // ----------------------------------------------------------------
           // Live mode — real on-chain transactions on Base Sepolia
@@ -53,7 +55,7 @@ export async function GET() {
 
           const master = new MasterAgent();
           await master.init();
-          await master.runResearchPipeline("ETH", sentimentAddress, onchainAddress, {
+          await master.runResearchPipeline(asset, sentimentAddress, onchainAddress, {
             sentimentEth: "0.001",
             onchainEth:   "0.001",
           });

@@ -7,13 +7,14 @@
 
 import { FilecoinStorage, BankrGateway, createCommitment, verifyCommitment } from "./AxiomAgent";
 
-export async function runDryPipeline() {
+export async function runDryPipeline(asset = "ETH") {
   console.log("\n" + "=".repeat(70));
   console.log("  AXIOM Protocol — Covenant Protocol for AI Agents");
   console.log("  Demo Pipeline v1.0.0");
   console.log("=".repeat(70));
 
   console.log("\n  [DEMO MODE — add PRIVATE_KEY env var to run live on Base Sepolia]");
+  console.log(`  Asset:   ${asset}`);
   console.log("  Network: Base Sepolia (Chain 84532)");
   console.log("  Registry: 0xB59726f55EB180832b56232DdF24d289aF86B491");
   console.log("  Covenant: 0x75E42505e9Dc81eb85EFF8E00285CBCf176F7E74");
@@ -97,9 +98,9 @@ export async function runDryPipeline() {
     analyzedAt: string;
   }>(
     "You are Sentinel-1, an AXIOM-registered market sentiment agent. Your reasoning was committed on-chain before this analysis ran — you cannot fabricate results.",
-    `Analyze current ETH market sentiment. Return JSON:
+    `Analyze current ${asset} market sentiment. Return JSON:
      {
-       "asset": "ETH",
+       "asset": "${asset}",
        "sentiment": "bullish|bearish|neutral",
        "confidence": 0.0-1.0,
        "recommendation": "BUY|SELL|HOLD",
@@ -153,10 +154,10 @@ export async function runDryPipeline() {
     reasoning: string;
     analyzedAt: string;
   }>(
-    "You are ChainEye-1, an AXIOM-registered on-chain data agent. Report ETH on-chain metrics objectively.",
-    `Analyze current ETH on-chain data. Return JSON:
+    `You are ChainEye-1, an AXIOM-registered on-chain data agent. Report ${asset} on-chain metrics objectively.`,
+    `Analyze current ${asset} on-chain data. Return JSON:
      {
-       "asset": "ETH",
+       "asset": "${asset}",
        "dexVolume24h": "string e.g. $2.3B",
        "volumeChange": "string e.g. +12%",
        "whaleActivity": "accumulation|distribution|neutral",
