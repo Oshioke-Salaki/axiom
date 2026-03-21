@@ -311,7 +311,7 @@ export class FilecoinStorage {
 
   private simulateStore(content: string): string {
     const hash = Buffer.from(content).toString("base64").slice(0, 28).replace(/[+/=]/g, "x");
-    const cid = `bafybeig${hash}`;
+    const cid = `bafybeisim${hash}`;
     console.log(`  [Filecoin:sim] Stored → ${cid}`);
     return cid;
   }
@@ -385,53 +385,91 @@ export class BankrGateway {
   }
 
   private mockResponse(input: string): string {
+    const assetMatch = input.match(/\b(BTC|ETH|SOL|ARB|OP|MATIC|LINK|AVAX|DOGE|PEPE|WIF|\b[A-Z]{2,6}\b)/);
+    const asset = assetMatch?.[1] ?? "ETH";
     if (input.toLowerCase().includes("sentiment")) {
-      return "Market sentiment analysis: BTC shows 74% bullish signals across Farcaster and on-chain metrics. Whale accumulation detected. Recommendation: BULLISH with high confidence.";
+      return JSON.stringify(this.mockJSONResponse(input));
     }
     if (input.toLowerCase().includes("volume") || input.toLowerCase().includes("dex")) {
-      return "On-chain data: 24h DEX volume $2.3B (+12%). Large buy orders detected on Uniswap v3 ETH/USDC. Whale wallet 0x...F3a accumulated 450 ETH in last 4 hours.";
+      return JSON.stringify(this.mockJSONResponse(input));
     }
-    return "Analysis complete. Signal: PROCEED with moderate confidence.";
+    return `${asset} analysis complete. Signal: PROCEED with moderate confidence.`;
   }
 
   private mockJSONResponse(input: string): unknown {
-    // Synthesis/trade decision mock — check first since it has higher specificity
+    // Extract asset from input (e.g. "Analyze BTC sentiment" → "BTC")
+    const assetMatch = input.match(/\b(BTC|ETH|SOL|ARB|OP|MATIC|LINK|AVAX|DOGE|PEPE|WIF|\b[A-Z]{2,6}\b)/);
+    const asset = assetMatch?.[1] ?? "ETH";
+
+    // Deterministic-but-varied values seeded from asset name
+    const seed = asset.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+    const rng = (min: number, max: number, offset = 0) => {
+      const v = ((seed * 31 + offset * 17) % 100) / 100;
+      return +(min + v * (max - min)).toFixed(2);
+    };
+
+    // Per-asset characteristics (override seed for known assets)
+    const ASSET_PROFILES: Record<string, { bias: number; vol: string; whale: string }> = {
+      BTC:  { bias: 0.68, vol: "$18.4B", whale: "accumulation" },
+      ETH:  { bias: 0.61, vol: "$9.2B",  whale: "neutral"      },
+      SOL:  { bias: 0.55, vol: "$3.1B",  whale: "distribution" },
+      ARB:  { bias: 0.47, vol: "$0.8B",  whale: "neutral"      },
+      OP:   { bias: 0.42, vol: "$0.5B",  whale: "distribution" },
+      MATIC:{ bias: 0.38, vol: "$0.6B",  whale: "neutral"      },
+      DOGE: { bias: 0.72, vol: "$2.4B",  whale: "accumulation" },
+      PEPE: { bias: 0.81, vol: "$1.1B",  whale: "accumulation" },
+      LINK: { bias: 0.59, vol: "$0.9B",  whale: "neutral"      },
+      AVAX: { bias: 0.53, vol: "$0.7B",  whale: "neutral"      },
+    };
+
+    const profile = ASSET_PROFILES[asset] ?? { bias: rng(0.35, 0.75), vol: `$${rng(0.3, 5, 1)}B`, whale: "neutral" };
+    const confidence = +(profile.bias + rng(-0.08, 0.08, 3)).toFixed(2);
+    const sentiment   = confidence > 0.60 ? "bullish" : confidence > 0.45 ? "neutral" : "bearish";
+    const recommendation = confidence > 0.60 ? "BUY" : confidence > 0.45 ? "HOLD" : "SELL";
+    const socialScore  = Math.round(confidence * 100 + rng(-8, 8, 5) * 100);
+    const onchainScore = Math.round(confidence * 100 + rng(-8, 8, 7) * 100);
+    const volChange    = `${profile.whale === "accumulation" ? "+" : profile.whale === "distribution" ? "-" : "+"}${rng(2, 18, 9).toFixed(1)}%`;
+
+    // Synthesis/trade decision mock
     if (input.toLowerCase().includes("synthesize") || (input.toLowerCase().includes("action") && input.toLowerCase().includes("rationale"))) {
       return {
-        action: "BUY",
-        confidence: 0.76,
-        rationale: "Both sentiment (74%) and on-chain (71%) signals align bullish. Whale accumulation and neutral funding rates suggest genuine demand with room to run.",
-        riskLevel: "low",
-        size: "2% of portfolio",
+        action: recommendation,
+        confidence,
+        rationale: `${asset} ${sentiment} signal: social ${socialScore}%, on-chain ${onchainScore}%. ${profile.whale === "accumulation" ? "Whale accumulation" : profile.whale === "distribution" ? "Whale distribution" : "Neutral whale flow"} detected. Funding rates within normal range.`,
+        riskLevel: confidence > 0.65 ? "low" : confidence > 0.5 ? "medium" : "high",
+        size: confidence > 0.65 ? "3% of portfolio" : "1% of portfolio",
         timestamp: new Date().toISOString()
       };
     }
     if (input.toLowerCase().includes("sentiment")) {
       return {
-        sentiment: "bullish",
-        confidence: 0.74,
-        signals: ["whale accumulation", "social momentum", "funding rates neutral"],
-        recommendation: "BUY",
-        reasoning: "Multiple on-chain and social signals align bullish"
+        sentiment,
+        confidence,
+        socialScore,
+        onchainScore,
+        signals: [
+          profile.whale === "accumulation" ? "whale accumulation" : profile.whale === "distribution" ? "whale distribution" : "neutral whale flow",
+          `social momentum ${sentiment}`,
+          `funding rates ${confidence > 0.6 ? "neutral" : "elevated"}`
+        ],
+        recommendation,
+        reasoning: `${asset} ${sentiment} bias (${(confidence * 100).toFixed(0)}%): social score ${socialScore}/100, on-chain score ${onchainScore}/100.`
       };
     }
     if (input.toLowerCase().includes("volume") || input.toLowerCase().includes("dex") || input.toLowerCase().includes("on-chain") || input.toLowerCase().includes("onchain")) {
       return {
-        dexVolume24h: "$2.3B",
-        volumeChange: "+12%",
-        whaleActivity: "accumulation",
-        largestTransaction: "450 ETH on Uniswap v3",
-        openInterest: "$1.8B",
-        fundingRate: "0.01% (neutral)",
-        liquidationsRisk: "low",
-        netSignal: "BULLISH",
-        confidence: 0.71,
-        keyMetrics: ["Volume spike", "Whale accumulation", "Low liquidation risk"],
-        reasoning: "On-chain flows confirm genuine demand with no over-leverage signal",
+        dexVolume24h: profile.vol,
+        volumeChange: volChange,
+        whaleActivity: profile.whale,
+        fundingRate: `${rng(0.005, 0.04, 11).toFixed(3)}% (${confidence > 0.6 ? "neutral" : "elevated"})`,
+        liquidationsRisk: confidence > 0.65 ? "low" : confidence > 0.5 ? "medium" : "high",
+        netSignal: recommendation === "BUY" ? "BULLISH" : recommendation === "SELL" ? "BEARISH" : "NEUTRAL",
+        confidence,
+        reasoning: `${asset} on-chain: ${profile.vol} DEX vol (${volChange}), ${profile.whale} whale activity.`,
         analyzedAt: new Date().toISOString()
       };
     }
-    return { action: "HOLD", confidence: 0.5, rationale: "Insufficient signal convergence", riskLevel: "medium", size: "1% of portfolio", timestamp: new Date().toISOString() };
+    return { action: recommendation, confidence, rationale: `${asset} signal: ${sentiment}`, riskLevel: "medium", size: "1% of portfolio", timestamp: new Date().toISOString() };
   }
 }
 

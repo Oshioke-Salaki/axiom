@@ -7,6 +7,32 @@
 
 import { FilecoinStorage, BankrGateway, createCommitment } from "./AxiomAgent";
 
+// Symbol → CoinGecko ID mapping
+const CG_IDS: Record<string, string> = {
+  ETH: "ethereum", BTC: "bitcoin", SOL: "solana", ARB: "arbitrum",
+  OP: "optimism", MATIC: "matic-network", LINK: "chainlink",
+  AVAX: "avalanche-2", DOGE: "dogecoin", PEPE: "pepe", WIF: "dogwifcoin",
+};
+
+async function fetchMarketData(asset: string): Promise<string> {
+  try {
+    const id = CG_IDS[asset.toUpperCase()] ?? asset.toLowerCase();
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true&include_24hr_vol=true&include_market_cap=true`;
+    const res = await fetch(url, { headers: { "Accept": "application/json" } });
+    if (!res.ok) return "";
+    const data = await res.json();
+    const d = data[id];
+    if (!d) return "";
+    const price   = d.usd != null         ? `$${Number(d.usd).toLocaleString()}` : "N/A";
+    const change  = d.usd_24h_change != null ? `${d.usd_24h_change > 0 ? "+" : ""}${d.usd_24h_change.toFixed(2)}%` : "N/A";
+    const vol     = d.usd_24h_vol != null    ? `$${(d.usd_24h_vol / 1e9).toFixed(2)}B` : "N/A";
+    const mcap    = d.usd_market_cap != null ? `$${(d.usd_market_cap / 1e9).toFixed(1)}B` : "N/A";
+    return `\nLIVE MARKET DATA (CoinGecko, real-time):\n  Price:        ${price}\n  24h Change:   ${change}\n  24h Volume:   ${vol}\n  Market Cap:   ${mcap}\n`;
+  } catch {
+    return "";
+  }
+}
+
 export async function runDryPipeline(asset = "ETH") {
   console.log("\n" + "=".repeat(70));
   console.log("  AXIOM Protocol — Covenant Protocol for AI Agents");
@@ -85,9 +111,10 @@ export async function runDryPipeline(asset = "ETH") {
 
   console.log(`\n[Sentinel-1] Running sentiment analysis for ${asset} via Bankr LLM...`);
 
+  const marketData = await fetchMarketData(asset);
   const rawSentiment = await llm.analyzeToJSON<Record<string, any>>(
     `You are Sentinel-1, an AXIOM-registered market sentiment agent. Your reasoning was committed on-chain before this analysis ran.`,
-    `Analyze current ${asset} market sentiment. Return ONLY valid JSON with exactly these keys:
+    `Analyze current ${asset} market sentiment.${marketData}Return ONLY valid JSON with exactly these keys:
      {
        "sentiment": "bullish" or "bearish" or "neutral",
        "confidence": number between 0 and 1,
@@ -144,7 +171,7 @@ export async function runDryPipeline(asset = "ETH") {
 
   const rawOnchain = await llm.analyzeToJSON<Record<string, any>>(
     `You are ChainEye-1, an AXIOM-registered on-chain data agent. Report ${asset} on-chain metrics objectively.`,
-    `Analyze current ${asset} on-chain data. Return ONLY valid JSON with exactly these keys:
+    `Analyze current ${asset} on-chain data.${marketData}Return ONLY valid JSON with exactly these keys:
      {
        "dexVolume24h": "e.g. $2.3B",
        "volumeChange": "e.g. +12%",

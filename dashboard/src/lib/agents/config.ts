@@ -28,6 +28,7 @@ export const AGENT_KEYS = {
   SENTIMENT: (process.env.SENTIMENT_AGENT_PRIVATE_KEY ?? "") as `0x${string}`,
   ONCHAIN:   (process.env.ONCHAIN_AGENT_PRIVATE_KEY  ?? "") as `0x${string}`,
   EXECUTOR:  (process.env.EXECUTOR_AGENT_PRIVATE_KEY  ?? "") as `0x${string}`,
+  NEXUS:     (process.env.NEXUS_AGENT_PRIVATE_KEY ?? "") as `0x${string}`,
 };
 
 export const AXIOM_BASE_CONFIG = {
