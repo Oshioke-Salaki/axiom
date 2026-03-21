@@ -1,0 +1,29 @@
+{
+  "name": "axiom-agents",
+  "version": "1.0.0",
+  "description": "AXIOM demo agents — autonomous research-to-trade pipeline",
+  "type": "module",
+  "scripts": {
+    "demo": "npx tsx demo-pipeline.ts",
+    "master": "npx tsx master-agent.ts",
+    "sentiment": "npx tsx sentiment-agent.ts",
+    "onchain": "npx tsx onchain-agent.ts"
+  },
+  "dependencies": {
+    "@filoz/synapse-sdk": "^1.0.0",
+    "@x402/express": "^2.7.0",
+    "@x402/fetch": "^2.7.0",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "ethers": "^6.16.0",
+    "express": "^4.21.2",
+    "openai": "^4.67.0",
+    "tsx": "^4.19.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
