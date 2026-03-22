@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     const terms = {
       task:      task      ?? `Analyze ${asset} market`,
       asset:     asset     ?? "ETH",
-      payment:   payment   ?? "0.001 ETH",
+      payment:   payment   ?? "0.00005 ETH",
       provider:  provider  ?? "",
       requester: requester ?? "",
       deadline:  new Date(Date.now() + 600_000).toISOString(), // 10 min

@@ -56,8 +56,8 @@ export async function GET(request: Request) {
           const master = new MasterAgent();
           await master.init();
           await master.runResearchPipeline(asset, sentimentAddress, onchainAddress, {
-            sentimentEth: "0.001",
-            onchainEth:   "0.001",
+            sentimentEth: "0.00005",
+            onchainEth:   "0.00005",
           });
         }
 

@@ -75,22 +75,22 @@ export async function runDryPipeline(asset = "ETH") {
   const pipelineId = `pipeline_${asset}_${Date.now()}`;
   console.log("\n" + "=".repeat(70));
   console.log(`  AXIOM PIPELINE: ${pipelineId}`);
-  console.log(`  Asset: ${asset}  |  Budget: 0.001 + 0.001 ETH`);
+  console.log(`  Asset: ${asset}  |  Budget: 0.00005 + 0.00005 ETH`);
   console.log("=".repeat(70));
 
   // Phase 1 — hire sentiment agent
   console.log("\n[PHASE 1] Hiring Sentiment Agent...");
   const [sentimentTermsCID, onchainTermsCID] = await Promise.all([
-    storage.storeTerms({ task: `${asset} sentiment analysis`, payment: "0.001 ETH", provider: "Sentinel-1" }),
-    storage.storeTerms({ task: `${asset} on-chain analysis`,  payment: "0.001 ETH", provider: "ChainEye-1" }),
+    storage.storeTerms({ task: `${asset} sentiment analysis`, payment: "0.00005 ETH", provider: "Sentinel-1" }),
+    storage.storeTerms({ task: `${asset} on-chain analysis`,  payment: "0.00005 ETH", provider: "ChainEye-1" }),
   ]);
   console.log("  [Covenant] Hiring 0xf0898B30...");
-  console.log("  [Covenant] #12 created. Payment: 0.001 ETH escrowed on Base");
+  console.log("  [Covenant] #12 created. Payment: 0.00005 ETH escrowed on Base");
 
   // Phase 2 — hire onchain agent
   console.log("\n[PHASE 2] Hiring Onchain Data Agent...");
   console.log("  [Covenant] Hiring 0x12e70471...");
-  console.log("  [Covenant] #13 created. Payment: 0.001 ETH escrowed on Base");
+  console.log("  [Covenant] #13 created. Payment: 0.00005 ETH escrowed on Base");
 
   console.log("\n[PIPELINE] Both covenants created. Sub-agents now working...");
   console.log(`  Covenant #12 → Sentinel-1 (sentiment)`);

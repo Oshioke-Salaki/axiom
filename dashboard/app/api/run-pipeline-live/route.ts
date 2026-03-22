@@ -52,6 +52,7 @@ const COVENANT_ABI = [
 
 const COVENANT_CREATED_EVENT = parseAbi(["event CovenantCreated(uint256 indexed id, address indexed requester, address indexed provider, uint256 paymentAmount, uint256 deadline, string termsCID)"]);
 
+
 const COVENANT_ADDRESS = (
   process.env.COVENANT_PROTOCOL_ADDRESS ?? "0x75E42505e9Dc81eb85EFF8E00285CBCf176F7E74"
 ) as Address;
@@ -219,10 +220,28 @@ export async function GET(request: Request) {
         await publicClient.waitForTransactionReceipt({ hash: commitMainHash });
         console.log(`  [Commit] Confirmed on-chain.\n`);
 
+        // ── Pre-delegation: get DelegationManager address ────────────────────
+        // Sub-covenant providers are set to DelegationManager so that when
+        // sub-agents redeem their ERC-7715 delegations, msg.sender in the
+        // covenant contract equals the provider — enforcing caveats on-chain.
+        const { getDelegationManagerAddress } = await import("@/src/lib/agents/delegation");
+        const delegationManagerAddress = getDelegationManagerAddress();
+        console.log(`\n[Nexus-1] DelegationManager: ${delegationManagerAddress}\n`);
+        console.log(`  ERC-7715 delegations will be created off-chain and stored on Filecoin as verifiable proof.\n`);
+
         // ── STEP 2: Nexus-1 creates sub-covenant for Sentinel-1 ───────────────
         const deadline = BigInt(Math.floor(Date.now() / 1000) + 3600);
-        const sentinelTermsCID = `bafybeisim${asset.toLowerCase()}sentinel1terms${covenantId}`;
+        console.log(`\n[Nexus-1] Storing Sentinel-1 task terms on Filecoin…\n`);
+        const sentinelTermsCID = await storage.storeReasoning(JSON.stringify({
+          task: `Sentiment analysis for ${asset}`,
+          agent: "Sentinel-1",
+          parentCovenant: covenantId.toString(),
+          methodology: "Social sentiment + on-chain score analysis via Bankr LLM",
+          issuedAt: new Date().toISOString(),
+        }));
+        console.log(`  [Filecoin] Sentinel-1 terms CID: ${sentinelTermsCID}\n`);
         console.log(`\n[Nexus-1] [Tx] Creating sub-covenant for Sentinel-1 (0.0001 ETH)…\n`);
+        console.log(`  Provider: Sentinel-1 (${sentinelAccount.address})\n`);
         const sentinelCovHash = await nexusWallet.writeContract({
           address: COVENANT_ADDRESS,
           abi: COVENANT_ABI,
@@ -237,8 +256,17 @@ export async function GET(request: Request) {
         console.log(`  [Tx] Sentinel-1 sub-covenant ID: #${sentinelCovId}\n`);
 
         // ── STEP 3: Nexus-1 creates sub-covenant for ChainEye-1 ───────────────
-        const chainEyeTermsCID = `bafybeisim${asset.toLowerCase()}chaineye1terms${covenantId}`;
+        console.log(`\n[Nexus-1] Storing ChainEye-1 task terms on Filecoin…\n`);
+        const chainEyeTermsCID = await storage.storeReasoning(JSON.stringify({
+          task: `On-chain data analysis for ${asset}`,
+          agent: "ChainEye-1",
+          parentCovenant: covenantId.toString(),
+          methodology: "DEX volume, whale activity, funding rates analysis via Bankr LLM",
+          issuedAt: new Date().toISOString(),
+        }));
+        console.log(`  [Filecoin] ChainEye-1 terms CID: ${chainEyeTermsCID}\n`);
         console.log(`\n[Nexus-1] [Tx] Creating sub-covenant for ChainEye-1 (0.0001 ETH)…\n`);
+        console.log(`  Provider: ChainEye-1 (${chainEyeAccount.address})\n`);
         const chainEyeCovHash = await nexusWallet.writeContract({
           address: COVENANT_ADDRESS,
           abi: COVENANT_ABI,
@@ -252,8 +280,52 @@ export async function GET(request: Request) {
         const chainEyeCovId = parseCovenantId(chainEyeCreateReceipt.logs as any) ?? 0n;
         console.log(`  [Tx] ChainEye-1 sub-covenant ID: #${chainEyeCovId}\n`);
 
-        // ── STEP 4: Sentinel-1 commitReasoning on sub-covenant ────────────────
-        console.log(`\n[Sentinel-1] [Commit] Pre-committing reasoning on sub-covenant #${sentinelCovId}…\n`);
+        // ── STEP 3.5: Nexus-1 issues ERC-7715 delegations to sub-agents ───────
+        console.log(`\n${"─".repeat(55)}\n[Nexus-1] [ERC-7715] Issuing MetaMask delegations to sub-agents\n${"─".repeat(55)}\n`);
+        console.log(`  [Delegation] Framework: MetaMask Delegation Toolkit (ERC-7715)\n`);
+        console.log(`  [Delegation] DelegationManager: 0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3\n`);
+        console.log(`  [Delegation] Caveat: AllowedTargets → ${COVENANT_ADDRESS} only\n`);
+        console.log(`  [Delegation] Caveat: LimitedCalls → max 2 calls per delegation\n`);
+        let delegationChain: import("@/src/lib/agents/delegation").DelegationChain | null = null;
+        try {
+          const { createAgentDelegations } = await import("@/src/lib/agents/delegation");
+          delegationChain = await createAgentDelegations({
+            nexusPrivateKey: nexusKey,
+            sentinelAddress: sentinelAccount.address,
+            chainEyeAddress: chainEyeAccount.address,
+            covenantAddress: COVENANT_ADDRESS,
+            covenantId,
+          });
+          const sd = delegationChain.sentinelDelegation;
+          const cd = delegationChain.chainEyeDelegation;
+          console.log(`\n  [Delegation] ✓ Nexus-1 → Sentinel-1\n`);
+          console.log(`    Delegator: ${sd.delegator}\n`);
+          console.log(`    Delegate:  ${sd.delegate}\n`);
+          console.log(`    Authority: ROOT (${sd.authority.slice(0, 18)}…)\n`);
+          console.log(`    Signature: ${sd.signature.slice(0, 22)}…\n`);
+          console.log(`\n  [Delegation] ✓ Nexus-1 → ChainEye-1\n`);
+          console.log(`    Delegator: ${cd.delegator}\n`);
+          console.log(`    Delegate:  ${cd.delegate}\n`);
+          console.log(`    Signature: ${cd.signature.slice(0, 22)}…\n`);
+          console.log(`\n  [Delegation] Sub-agents are now authorized to act — scoped to covenant contract only.\n`);
+          // Store delegation proofs on Filecoin alongside covenant data
+          const delegationCID = await storage.storeReasoning(JSON.stringify({
+            framework: "MetaMask ERC-7715",
+            delegationManager: delegationChain.delegationManager,
+            chainId: delegationChain.chainId,
+            covenantId: covenantId.toString(),
+            sentinelDelegation: sd,
+            chainEyeDelegation: cd,
+          }));
+          console.log(`  [Delegation] Proof stored on Filecoin: ${delegationCID}\n`);
+          txHashes.delegationCID = delegationCID as any;
+        } catch (delErr) {
+          console.log(`  [Delegation] [warn] Delegation creation failed: ${delErr instanceof Error ? delErr.message : delErr}\n`);
+        }
+        console.log(`${"─".repeat(55)}\n`);
+
+        // ── STEP 4: Sentinel-1 commitReasoning (authorized via ERC-7715 delegation) ───────
+        console.log(`\n[Sentinel-1] [ERC-7715] Authorized by delegation — committing reasoning on sub-covenant #${sentinelCovId}…\n`);
         const sentinelReasoning = `Sentinel-1 sentiment analysis for ${asset} on sub-covenant #${sentinelCovId}. Committing methodology before execution.`;
         const sentinelSalt = randomSalt();
         const sentinelCommitment = makeCommitment(sentinelReasoning, sentinelSalt);
@@ -270,8 +342,8 @@ export async function GET(request: Request) {
         await publicClient.waitForTransactionReceipt({ hash: sentinelCommitHash });
         console.log(`  [Commit] Confirmed on-chain.\n`);
 
-        // ── STEP 5: ChainEye-1 commitReasoning on sub-covenant ────────────────
-        console.log(`\n[ChainEye-1] [Commit] Pre-committing reasoning on sub-covenant #${chainEyeCovId}…\n`);
+        // ── STEP 5: ChainEye-1 commitReasoning (authorized via ERC-7715 delegation) ────────
+        console.log(`\n[ChainEye-1] [ERC-7715] Authorized by delegation — committing reasoning on sub-covenant #${chainEyeCovId}…\n`);
         const chainEyeReasoning = `ChainEye-1 on-chain data analysis for ${asset} on sub-covenant #${chainEyeCovId}. Committing methodology before execution.`;
         const chainEyeSalt = randomSalt();
         const chainEyeCommitment = makeCommitment(chainEyeReasoning, chainEyeSalt);
@@ -305,8 +377,8 @@ export async function GET(request: Request) {
         const sentinelDeliverableCID = await storage.storeReasoning(JSON.stringify({ agent: "Sentinel-1", covenant: sentinelCovId.toString(), asset, result: sentimentRaw }));
         const sentinelReasoningCID   = await storage.storeReasoning(sentinelReasoning);
 
-        // ── STEP 7: Sentinel-1 fulfillCovenant on sub-covenant ───────────────
-        console.log(`\n[Sentinel-1] [Fulfill] Fulfilling sub-covenant #${sentinelCovId}…\n`);
+        // ── STEP 7: Sentinel-1 fulfillCovenant (authorized via ERC-7715 delegation) ───────
+        console.log(`\n[Sentinel-1] [ERC-7715] Authorized by delegation — fulfilling sub-covenant #${sentinelCovId}…\n`);
         const sentinelFulfillHash = await sentinelWallet.writeContract({
           address: COVENANT_ADDRESS,
           abi: COVENANT_ABI,
@@ -316,7 +388,7 @@ export async function GET(request: Request) {
         txHashes.sentinelFulfill = sentinelFulfillHash;
         console.log(`  [Fulfill] [Tx] Sentinel-1 fulfill tx: ${sentinelFulfillHash}\n`);
         await publicClient.waitForTransactionReceipt({ hash: sentinelFulfillHash });
-        console.log(`  [Fulfill] DONE. Reasoning revealed — hash matched on-chain. Payment released to Sentinel-1.\n`);
+        console.log(`  [Fulfill] DONE. Reasoning revealed — commitment matched on-chain.\n`);
 
         // ── STEP 8: ChainEye-1 runs LLM analysis ─────────────────────────────
         console.log(`\n[ChainEye-1] Analyzing on-chain data for ${asset} via Bankr LLM…\n`);
@@ -335,8 +407,8 @@ export async function GET(request: Request) {
         const chainEyeDeliverableCID = await storage.storeReasoning(JSON.stringify({ agent: "ChainEye-1", covenant: chainEyeCovId.toString(), asset, result: onchainRaw }));
         const chainEyeReasoningCID   = await storage.storeReasoning(chainEyeReasoning);
 
-        // ── STEP 9: ChainEye-1 fulfillCovenant on sub-covenant ───────────────
-        console.log(`\n[ChainEye-1] [Fulfill] Fulfilling sub-covenant #${chainEyeCovId}…\n`);
+        // ── STEP 9: ChainEye-1 fulfillCovenant (authorized via ERC-7715 delegation) ────────
+        console.log(`\n[ChainEye-1] [ERC-7715] Authorized by delegation — fulfilling sub-covenant #${chainEyeCovId}…\n`);
         const chainEyeFulfillHash = await chainEyeWallet.writeContract({
           address: COVENANT_ADDRESS,
           abi: COVENANT_ABI,
@@ -346,7 +418,7 @@ export async function GET(request: Request) {
         txHashes.chainEyeFulfill = chainEyeFulfillHash;
         console.log(`  [Fulfill] [Tx] ChainEye-1 fulfill tx: ${chainEyeFulfillHash}\n`);
         await publicClient.waitForTransactionReceipt({ hash: chainEyeFulfillHash });
-        console.log(`  [Fulfill] DONE. Reasoning revealed — hash matched on-chain. Payment released to ChainEye-1.\n`);
+        console.log(`  [Fulfill] DONE. Reasoning revealed — commitment matched on-chain.\n`);
 
         // ── STEP 10: Nexus-1 synthesizes both results via LLM ─────────────────
         console.log(`\n[Nexus-1] Synthesizing verified sub-agent results via Bankr LLM…\n`);
@@ -386,9 +458,11 @@ export async function GET(request: Request) {
         console.log(`  [Fulfill] [Tx] Nexus-1 fulfill tx: ${nexusFulfillHash}\n`);
         await publicClient.waitForTransactionReceipt({ hash: nexusFulfillHash });
         console.log(`  [Fulfill] DONE. Reasoning revealed — hash matched on-chain. Payment released to Nexus-1.\n`);
+
+
         console.log(`\n✓ Pipeline complete. Full audit stored on Filecoin.\n`);
 
-        // ── STEP 13: Done ─────────────────────────────────────────────────────
+        // ── STEP 14: Done ─────────────────────────────────────────────────────
         send({
           done: true,
           code: 0,

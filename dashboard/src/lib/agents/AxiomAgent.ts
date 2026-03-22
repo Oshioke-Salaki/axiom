@@ -221,20 +221,19 @@ export function verifyCommitment(reasoning: string, salt: Hex, commitment: Hex):
 }
 
 // ============================================================================
-// FilecoinStorage — Synapse SDK v1.0.0
-// API: synapse.createStorage() → storage.upload(data) → { commp }
-// Requires: ethers v6 peer dep, USDFC deposited + service approved
+// FilecoinStorage — Synapse SDK v0.40.0
+// API: Synapse.create({ account, transport, chain, source }) → synapse.storage.upload(data) → { pieceCid }
+// Token: USDFC deposited via payments.depositWithPermitAndApproveOperator or prepare()
 // ============================================================================
 export class FilecoinStorage {
   private isSimulated: boolean;
   private rpcUrl: string;
   private privateKey: string;
   private synapse: any = null;
-  private storageService: any = null;
 
   constructor(config: { rpcUrl?: string; privateKey?: string }) {
-    // Use WebSocket RPC for calibration — SDK works better with it
-    this.rpcUrl = config.rpcUrl ?? "wss://wss.calibration.node.glif.io/apigw/lotus/rpc/v1";
+    // HTTP RPC — SDK requires HTTP, not WSS
+    this.rpcUrl = config.rpcUrl ?? "https://api.calibration.node.glif.io/rpc/v1";
     this.privateKey = config.privateKey ?? "";
     this.isSimulated = !config.privateKey;
   }
@@ -245,46 +244,46 @@ export class FilecoinStorage {
       return;
     }
     try {
-      const { Synapse } = await import("@filoz/synapse-sdk");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.synapse = await (Synapse as any).create({
-        rpcURL: this.rpcUrl,
-        privateKey: this.privateKey,
+      const { Synapse, calibration, formatUnits, parseUnits } = await import("@filoz/synapse-sdk");
+      const { http } = await import("viem");
+      const { privateKeyToAccount } = await import("viem/accounts");
+
+      const account = privateKeyToAccount(this.privateKey as `0x${string}`);
+      // Synapse.create is synchronous — returns Synapse directly (not a Promise)
+      this.synapse = Synapse.create({
+        account,
+        transport: http(this.rpcUrl),
+        chain: calibration,
+        source: "axiom-agent",
       });
-      console.log("  [Filecoin] Connected to FOC calibration network");
+      console.log(`  [Filecoin] Connected to FOC calibration — wallet: ${account.address}`);
 
-      // Check USDFC balance before attempting to create storage
-      const { TOKENS } = await import("@filoz/synapse-sdk");
-      const usdfc = await this.synapse.payments.walletBalance(TOKENS.USDFC);
-      const { ethers } = await import("ethers");
-      const usdfcFormatted = ethers.formatUnits(usdfc, 18);
-      console.log(`  [Filecoin] USDFC wallet balance: ${usdfcFormatted}`);
+      // Check USDFC wallet balance
+      const walletBal = await this.synapse.payments.walletBalance({ token: "USDFC" });
+      console.log(`  [Filecoin] USDFC wallet balance: ${formatUnits(walletBal, 18)}`);
 
-      if (usdfc === 0n) {
-        console.log("  [Filecoin] No USDFC balance — falling back to simulation");
-        console.log("  [Filecoin] To enable real storage: get tUSDFC at https://stg.usdfc.net");
+      if (walletBal === 0n) {
+        console.log("  [Filecoin] No USDFC — falling back to simulation");
         this.isSimulated = true;
         return;
       }
 
       // Check deposited balance
-      const deposited = await this.synapse.payments.balance();
-      console.log(`  [Filecoin] Deposited balance: ${ethers.formatUnits(deposited, 18)} USDFC`);
+      const deposited = await this.synapse.payments.balance({ token: "USDFC" });
+      console.log(`  [Filecoin] USDFC deposited: ${formatUnits(deposited, 18)}`);
 
       if (deposited === 0n) {
-        // Auto-deposit a small amount for the demo
-        console.log("  [Filecoin] Depositing USDFC for storage payments...");
-        const depositAmount = ethers.parseUnits("10", 18); // 10 USDFC
-        const depositable = usdfc < depositAmount ? usdfc : depositAmount;
-        await this.synapse.payments.deposit(depositable, TOKENS.USDFC);
-        console.log(`  [Filecoin] Deposited ${ethers.formatUnits(depositable, 18)} USDFC`);
+        // Deposit + approve operator in one shot using permit (no separate approve tx needed)
+        console.log("  [Filecoin] Funding storage payments via permit...");
+        const depositAmt = walletBal < parseUnits("10", 18) ? walletBal : parseUnits("10", 18);
+        const txHash = await this.synapse.payments.depositWithPermitAndApproveOperator({
+          amount: depositAmt,
+          token: "USDFC",
+        });
+        console.log(`  [Filecoin] Deposit tx: ${txHash}`);
       }
 
-      // Create the storage service (selects a provider automatically)
-      console.log("  [Filecoin] Creating storage service...");
-      this.storageService = await this.synapse.createStorage();
       console.log("  [Filecoin] Storage service ready");
-
     } catch (err: any) {
       console.warn(`  [Filecoin] Init failed: ${err.message}`);
       console.log("  [Filecoin] Falling back to simulation mode");
@@ -292,19 +291,39 @@ export class FilecoinStorage {
     }
   }
 
+  // FOC requires a minimum upload size. We pad small payloads with a JSON metadata suffix.
+  private static MIN_UPLOAD_BYTES = 512;
+
   async store(content: string): Promise<string> {
-    if (this.isSimulated || !this.storageService) {
+    if (this.isSimulated || !this.synapse) {
       return this.simulateStore(content);
     }
     try {
-      const data = new TextEncoder().encode(content);
-      const result = await this.storageService.upload(data);
-      // v1.0.0 returns { commp } — the piece commitment CID
-      const cid = result.commp?.toString() ?? result.cid?.toString() ?? result.pieceCID;
+      let raw = new TextEncoder().encode(content);
+      // Pad to minimum size so FOC accepts the upload
+      if (raw.length < FilecoinStorage.MIN_UPLOAD_BYTES) {
+        const padded = content + "\n" + " ".repeat(FilecoinStorage.MIN_UPLOAD_BYTES - raw.length);
+        raw = new TextEncoder().encode(padded);
+      }
+
+      // Auto-fund if needed (prepare calculates exact deposit required)
+      try {
+        const { formatUnits } = await import("@filoz/synapse-sdk");
+        const prepareResult = await this.synapse.storage.prepare({ dataSize: BigInt(raw.length) });
+        if (prepareResult.transaction) {
+          console.log(`  [Filecoin] Auto-funding storage (${formatUnits(prepareResult.transaction.depositAmount, 18)} USDFC)...`);
+          await prepareResult.transaction.execute();
+        }
+      } catch (prepErr: any) {
+        console.log(`  [Filecoin] prepare step failed (${prepErr?.message ?? prepErr}) — proceeding`);
+      }
+
+      const result = await this.synapse.storage.upload(raw);
+      const cid = result.pieceCid.toString();
       console.log(`  [Filecoin] Stored → ${cid}`);
       return cid;
     } catch (err: any) {
-      console.warn(`  [Filecoin] Upload failed (${err.message}) — using simulation`);
+      console.log(`  [Filecoin] Upload failed (${err?.message ?? err}) — using simulation`);
       return this.simulateStore(content);
     }
   }

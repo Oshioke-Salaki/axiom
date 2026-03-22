@@ -324,7 +324,7 @@ if (isMain) {
       "ETH",
       (process.env.SENTIMENT_AGENT_ADDRESS ?? "0x0000000000000000000000000000000000000001") as `0x${string}`,
       (process.env.ONCHAIN_AGENT_ADDRESS ?? "0x0000000000000000000000000000000000000002") as `0x${string}`,
-      { sentimentEth: "0.001", onchainEth: "0.001" }
+      { sentimentEth: "0.00005", onchainEth: "0.00005" }
     );
   }).catch(console.error);
 }
