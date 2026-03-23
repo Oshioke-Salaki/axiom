@@ -539,7 +539,7 @@ function TxLink({ hash, dark }: { hash: string; dark?: boolean }) {
     );
   return (
     <a
-      href={`https://sepolia.basescan.org/tx/${hash}`}
+      href={`https://basescan.org/tx/${hash}`}
       target="_blank"
       rel="noopener noreferrer"
       className="font-mono text-xs text-blue-500 hover:underline hover:text-blue-400 transition-colors"
@@ -1151,7 +1151,7 @@ function CovenantCard({ c, dark }: { c: LiveCovenant; dark: boolean }) {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <a
-              href={`https://sepolia.basescan.org/address/${CONTRACTS.COVENANT}`}
+              href={`https://basescan.org/address/${CONTRACTS.COVENANT}`}
               target="_blank"
               rel="noopener noreferrer"
               className="font-semibold font-mono hover:text-blue-500 transition-colors"
@@ -1595,7 +1595,7 @@ function RegisterAgentModal({
                   Transaction
                 </div>
                 <a
-                  href={`https://sepolia.basescan.org/tx/${txHash}`}
+                  href={`https://basescan.org/tx/${txHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs font-mono text-blue-500 hover:underline block truncate"
@@ -2318,7 +2318,7 @@ function HireAgentModal({
                 {txHash && (
                   <div>
                     <a
-                      href={`https://sepolia.basescan.org/tx/${txHash}`}
+                      href={`https://basescan.org/tx/${txHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-500 hover:underline truncate block"
@@ -2786,7 +2786,7 @@ function LivePipelineModal({
                           <span className="text-pink-400 font-mono">{trunc(hash, 30)}</span>
                         ) : (
                           <a
-                            href={`https://sepolia.basescan.org/tx/${hash}`}
+                            href={`https://basescan.org/tx/${hash}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className={isUniswap ? "text-pink-400 hover:underline" : "text-blue-500 hover:underline"}
@@ -3114,7 +3114,7 @@ export default function Home() {
           <div className="flex items-center gap-3">
             <div className={`flex items-center gap-4 text-xs ${muted}`}>
               <a
-                href={`https://sepolia.basescan.org/address/${CONTRACTS.COVENANT}`}
+                href={`https://basescan.org/address/${CONTRACTS.COVENANT}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`flex items-center gap-1.5 transition-colors ${dark ? "hover:text-[#ccc]" : "hover:text-gray-700"}`}
@@ -3419,7 +3419,7 @@ export default function Home() {
                       l: "Base",
                       d: "Covenant protocol · reputation system",
                       dot: "bg-emerald-400",
-                      h: `https://sepolia.basescan.org/address/${CONTRACTS.COVENANT}`,
+                      h: `https://basescan.org/address/${CONTRACTS.COVENANT}`,
                     },
                     {
                       l: "Bankr LLM Gateway",
@@ -3664,7 +3664,7 @@ export default function Home() {
                       addr
                     </span>
                     <a
-                      href={`https://sepolia.basescan.org/address/${agent.address}`}
+                      href={`https://basescan.org/address/${agent.address}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-500 hover:underline transition-colors truncate"
@@ -3908,7 +3908,7 @@ export default function Home() {
             {[
               {
                 l: "BaseScan ↗",
-                h: `https://sepolia.basescan.org/address/${CONTRACTS.COVENANT}`,
+                h: `https://basescan.org/address/${CONTRACTS.COVENANT}`,
               },
               { l: "Filecoin ↗", h: "https://filecoin.io" },
               { l: "Bankr ↗", h: "https://bankr.bot" },

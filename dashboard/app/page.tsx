@@ -347,7 +347,7 @@ export default function Landing() {
                 <span className="font-mono font-semibold text-sm shrink-0">{c.name}</span>
                 <span className={`text-xs font-mono flex-1 ${sub}`}>{c.desc}</span>
                 <a
-                  href={`https://sepolia.basescan.org/address/${c.addr}`}
+                  href={`https://basescan.org/address/${c.addr}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className={`text-xs font-mono shrink-0 hover:underline ${dark ? "text-[#888] hover:text-[#ccc]" : "text-gray-400 hover:text-gray-700"}`}
