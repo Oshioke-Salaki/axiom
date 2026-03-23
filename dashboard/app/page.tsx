@@ -339,9 +339,9 @@ export default function Landing() {
           <h2 className="text-3xl font-black mb-8">Contracts</h2>
           <div className="space-y-3">
             {[
-              { name: "Covenant Protocol",  addr: "0x75E42505e9Dc81eb85EFF8E00285CBCf176F7E74", desc: "createCovenant · commitReasoning · fulfillCovenant · escrow" },
-              { name: "Agent Registry",     addr: "0xB59726f55EB180832b56232DdF24d289aF86B491", desc: "registerAgent · getAgent · isRegistered" },
-              { name: "Reputation System",  addr: "0x196f28023E063CDb0D2EDeD22ddE18b6C5c2F6a2", desc: "getScore · getTier · getRecord · five-tier system" },
+              { name: "Covenant Protocol",  addr: process.env.NEXT_PUBLIC_COVENANT_PROTOCOL_ADDRESS   ?? "deploying…", desc: "createCovenant · commitReasoning · fulfillCovenant · escrow" },
+              { name: "Agent Registry",     addr: process.env.NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS   ?? "deploying…", desc: "registerAgent · getAgent · isRegistered" },
+              { name: "Reputation System",  addr: process.env.NEXT_PUBLIC_REPUTATION_SYSTEM_ADDRESS ?? "deploying…", desc: "getScore · getTier · getRecord · five-tier system" },
             ].map((c) => (
               <div key={c.addr} className={`rounded-xl border p-4 flex flex-col sm:flex-row sm:items-center gap-2 ${cardBg} ${cardBdr}`}>
                 <span className="font-mono font-semibold text-sm shrink-0">{c.name}</span>

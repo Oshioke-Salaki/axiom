@@ -2,15 +2,15 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createPublicClient, http, parseAbi, decodeEventLog } from "viem";
-import { baseSepolia } from "viem/chains";
+import { base } from "viem/chains";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, useWalletClient } from "wagmi";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CONTRACTS = {
-  REGISTRY: "0xB59726f55EB180832b56232DdF24d289aF86B491" as `0x${string}`,
-  COVENANT: "0x75E42505e9Dc81eb85EFF8E00285CBCf176F7E74" as `0x${string}`,
-  REPUTATION: "0x196f28023E063CDb0D2EDeD22ddE18b6C5c2F6a2" as `0x${string}`,
+  REGISTRY:   (process.env.NEXT_PUBLIC_AGENT_REGISTRY_ADDRESS   ?? "") as `0x${string}`,
+  COVENANT:   (process.env.NEXT_PUBLIC_COVENANT_PROTOCOL_ADDRESS ?? "") as `0x${string}`,
+  REPUTATION: (process.env.NEXT_PUBLIC_REPUTATION_SYSTEM_ADDRESS ?? "") as `0x${string}`,
 };
 
 const KNOWN_AGENTS = [
@@ -233,8 +233,8 @@ const REGISTRY_EVENTS = parseAbi([
 ]);
 
 const client = createPublicClient({
-  chain: baseSepolia,
-  transport: http("https://sepolia.base.org"),
+  chain: base,
+  transport: http("https://mainnet.base.org"),
 });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1323,7 +1323,7 @@ function RegisterAgentModal({
     try {
       if (!walletAddress) throw new Error("Wallet not connected");
       const { createWalletClient, custom } = await import("viem");
-      const { baseSepolia: chain } = await import("viem/chains");
+      const { base: chain } = await import("viem/chains");
       const wc = createWalletClient({
         chain,
         transport: custom((window as any).ethereum),
@@ -1359,7 +1359,7 @@ function RegisterAgentModal({
           <div>
             <h2 className="font-semibold text-sm">Register Your Agent</h2>
             <p className={`text-xs mt-0.5 ${muted}`}>
-              Anchor your agent identity on Base Sepolia
+              Anchor your agent identity on Base
             </p>
           </div>
           <button
@@ -1663,7 +1663,7 @@ async function bootstrapAgentsIfNeeded(
 
   const { createWalletClient, createPublicClient, http, custom } =
     await import("viem");
-  const { baseSepolia: bsChain } = await import("viem/chains");
+  const { base: bsChain } = await import("viem/chains");
   const wc = createWalletClient({
     chain: bsChain,
     transport: custom((window as any).ethereum),
@@ -1796,7 +1796,7 @@ function HireAgentModal({
 
       setStep("creating");
       const { createWalletClient, custom, parseEther } = await import("viem");
-      const { baseSepolia: chain } = await import("viem/chains");
+      const { base: chain } = await import("viem/chains");
 
       const wallet = createWalletClient({
         chain,
@@ -2148,7 +2148,7 @@ function HireAgentModal({
               <p
                 className={`text-xs ${dark ? "text-[#444]" : "text-gray-300"}`}
               >
-                Sending {payment} ETH to escrow on Base Sepolia
+                Sending {payment} ETH to escrow on Base
               </p>
             </div>
           )}
@@ -2438,7 +2438,7 @@ function LivePipelineModal({
         custom,
         parseEther: pe,
       } = await import("viem");
-      const { baseSepolia: chain } = await import("viem/chains");
+      const { base: chain } = await import("viem/chains");
 
       const wallet = createWalletClient({
         chain,
@@ -2631,7 +2631,7 @@ function LivePipelineModal({
                 <p
                   className={`text-xs ${dark ? "text-[#444]" : "text-gray-300"}`}
                 >
-                  Sending 0.00005 ETH to escrow on Base Sepolia
+                  Sending 0.00005 ETH to escrow on Base
                 </p>
               )}
             </div>
@@ -2696,7 +2696,7 @@ function LivePipelineModal({
                 </div>
                 <h3 className="font-semibold font-mono">Pipeline Complete</h3>
                 <p className={`text-xs text-center ${muted}`}>
-                  Full 3-covenant pipeline fulfilled on Base Sepolia
+                  Full 3-covenant pipeline fulfilled on Base
                 </p>
               </div>
 
@@ -3120,7 +3120,7 @@ export default function Home() {
                 className={`flex items-center gap-1.5 transition-colors ${dark ? "hover:text-[#ccc]" : "hover:text-gray-700"}`}
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />{" "}
-                Base Sepolia ↗
+                Base ↗
               </a>
               {loading ? (
                 <span className="flex items-center gap-1.5">
@@ -3182,7 +3182,7 @@ export default function Home() {
                 agents.filter((a) => a.isRegistered).length ||
                 (loading ? "—" : 0),
               label: "Registered Agents",
-              sub: "on Base Sepolia",
+              sub: "on Base",
             },
             {
               value: covCount || "—",
@@ -3416,7 +3416,7 @@ export default function Home() {
                       h: "https://filecoin.io",
                     },
                     {
-                      l: "Base Sepolia",
+                      l: "Base",
                       d: "Covenant protocol · reputation system",
                       dot: "bg-emerald-400",
                       h: `https://sepolia.basescan.org/address/${CONTRACTS.COVENANT}`,
@@ -3518,7 +3518,7 @@ export default function Home() {
                   RPC fetch failed
                 </div>
                 <div className={`text-xs ${muted}`}>
-                  Could not reach Base Sepolia — retrying automatically
+                  Could not reach Base — retrying automatically
                 </div>
                 <button
                   onClick={refresh}

@@ -12,10 +12,10 @@ export const runtime = "nodejs";
 
 import { createPublicClient, http, type Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
+import { base } from "viem/chains";
 
 const REGISTRY_ADDRESS = (
-  process.env.AGENT_REGISTRY_ADDRESS ?? "0xB59726f55EB180832b56232DdF24d289aF86B491"
+  process.env.AGENT_REGISTRY_ADDRESS ?? ""
 ) as Address;
 
 const REGISTRY_ABI = [
@@ -35,8 +35,8 @@ const AGENT_SPECS = [
 ] as const;
 
 export async function GET() {
-  const rpcUrl = process.env.BASE_SEPOLIA_RPC_URL ?? "https://sepolia.base.org";
-  const publicClient = createPublicClient({ chain: baseSepolia, transport: http(rpcUrl) });
+  const rpcUrl = process.env.BASE_RPC_URL ?? process.env.BASE_SEPOLIA_RPC_URL ?? "https://mainnet.base.org";
+  const publicClient = createPublicClient({ chain: base, transport: http(rpcUrl) });
 
   const agents = await Promise.all(
     AGENT_SPECS.map(async (spec) => {

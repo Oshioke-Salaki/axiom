@@ -39,11 +39,11 @@ export async function runDryPipeline(asset = "ETH") {
   console.log("  Demo Pipeline v1.0.0");
   console.log("=".repeat(70));
 
-  console.log("\n  [DEMO MODE — add PRIVATE_KEY env var to run live on Base Sepolia]");
+  console.log("\n  [DEMO MODE — add PRIVATE_KEY env var to run live on Base mainnet]");
   console.log(`  Asset:   ${asset}`);
-  console.log("  Network: Base Sepolia (Chain 84532)");
-  console.log("  Registry: 0xB59726f55EB180832b56232DdF24d289aF86B491");
-  console.log("  Covenant: 0x75E42505e9Dc81eb85EFF8E00285CBCf176F7E74");
+  console.log("  Network: Base (Chain 8453)");
+  console.log(`  Registry: ${process.env.AGENT_REGISTRY_ADDRESS ?? "(set AGENT_REGISTRY_ADDRESS)"}`);
+  console.log(`  Covenant: ${process.env.COVENANT_PROTOCOL_ADDRESS ?? "(set COVENANT_PROTOCOL_ADDRESS)"}`);
 
   const storage = new FilecoinStorage({});
   await storage.init();

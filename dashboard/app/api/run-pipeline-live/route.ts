@@ -14,7 +14,7 @@ import {
   type Hex,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
+import { base } from "viem/chains";
 
 // ── ABI ───────────────────────────────────────────────────────────────────────
 const COVENANT_ABI = [
@@ -54,7 +54,7 @@ const COVENANT_CREATED_EVENT = parseAbi(["event CovenantCreated(uint256 indexed 
 
 
 const COVENANT_ADDRESS = (
-  process.env.COVENANT_PROTOCOL_ADDRESS ?? "0x75E42505e9Dc81eb85EFF8E00285CBCf176F7E74"
+  process.env.COVENANT_PROTOCOL_ADDRESS ?? ""
 ) as Address;
 
 const CG_IDS: Record<string, string> = {
@@ -143,12 +143,12 @@ export async function GET(request: Request) {
         const sentinelAccount = privateKeyToAccount(sentinelKey);
         const chainEyeAccount = privateKeyToAccount(chainEyeKey);
 
-        const rpcUrl = process.env.BASE_SEPOLIA_RPC_URL ?? "https://sepolia.base.org";
-        const publicClient = createPublicClient({ chain: baseSepolia, transport: http(rpcUrl) });
+        const rpcUrl = process.env.BASE_RPC_URL ?? process.env.BASE_SEPOLIA_RPC_URL ?? "https://mainnet.base.org";
+        const publicClient = createPublicClient({ chain: base, transport: http(rpcUrl) });
 
-        const nexusWallet    = createWalletClient({ account: nexusAccount,    chain: baseSepolia, transport: http(rpcUrl) });
-        const sentinelWallet = createWalletClient({ account: sentinelAccount, chain: baseSepolia, transport: http(rpcUrl) });
-        const chainEyeWallet = createWalletClient({ account: chainEyeAccount, chain: baseSepolia, transport: http(rpcUrl) });
+        const nexusWallet    = createWalletClient({ account: nexusAccount,    chain: base, transport: http(rpcUrl) });
+        const sentinelWallet = createWalletClient({ account: sentinelAccount, chain: base, transport: http(rpcUrl) });
+        const chainEyeWallet = createWalletClient({ account: chainEyeAccount, chain: base, transport: http(rpcUrl) });
 
         const llm     = new BankrGateway({ apiKey: process.env.BANKR_LLM_KEY ?? "" });
         const storage = new FilecoinStorage({

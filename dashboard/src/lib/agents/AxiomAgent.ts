@@ -233,7 +233,7 @@ export class FilecoinStorage {
 
   constructor(config: { rpcUrl?: string; privateKey?: string }) {
     // HTTP RPC — SDK requires HTTP, not WSS
-    this.rpcUrl = config.rpcUrl ?? "https://api.calibration.node.glif.io/rpc/v1";
+    this.rpcUrl = config.rpcUrl ?? "https://api.node.glif.io/rpc/v1";
     this.privateKey = config.privateKey ?? "";
     this.isSimulated = !config.privateKey;
   }
@@ -244,7 +244,7 @@ export class FilecoinStorage {
       return;
     }
     try {
-      const { Synapse, calibration, formatUnits, parseUnits } = await import("@filoz/synapse-sdk");
+      const { Synapse, mainnet: filecoinMainnet, formatUnits, parseUnits } = await import("@filoz/synapse-sdk");
       const { http } = await import("viem");
       const { privateKeyToAccount } = await import("viem/accounts");
 
@@ -253,10 +253,10 @@ export class FilecoinStorage {
       this.synapse = Synapse.create({
         account,
         transport: http(this.rpcUrl),
-        chain: calibration,
+        chain: filecoinMainnet,
         source: "axiom-agent",
       });
-      console.log(`  [Filecoin] Connected to FOC calibration — wallet: ${account.address}`);
+      console.log(`  [Filecoin] Connected to Filecoin mainnet — wallet: ${account.address}`);
 
       // Check USDFC wallet balance
       const walletBal = await this.synapse.payments.walletBalance({ token: "USDFC" });

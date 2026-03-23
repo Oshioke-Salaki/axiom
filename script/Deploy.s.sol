@@ -33,7 +33,7 @@ contract DeployAxiom is Script {
         registry.setCovenantProtocol(address(covenant));
 
         console.log("\n=== AXIOM DEPLOYMENT COMPLETE ===");
-        console.log("Network: Base Sepolia");
+        console.log("Network: Base Mainnet");
         console.log("AgentRegistry:    ", address(registry));
         console.log("ReputationSystem: ", address(reputation));
         console.log("CovenantProtocol: ", address(covenant));

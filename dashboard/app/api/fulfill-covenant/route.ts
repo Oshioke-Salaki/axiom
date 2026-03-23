@@ -3,10 +3,10 @@ export const maxDuration = 120;
 
 import { createPublicClient, http, type Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
+import { base } from "viem/chains";
 
 const COVENANT_ADDRESS = (
-  process.env.COVENANT_PROTOCOL_ADDRESS ?? "0x75E42505e9Dc81eb85EFF8E00285CBCf176F7E74"
+  process.env.COVENANT_PROTOCOL_ADDRESS ?? ""
 ) as Address;
 
 const GET_COVENANT_ABI = [
@@ -39,7 +39,7 @@ const GET_COVENANT_ABI = [
   },
 ] as const;
 
-const rpcClient = createPublicClient({ chain: baseSepolia, transport: http(process.env.BASE_SEPOLIA_RPC_URL ?? "https://sepolia.base.org") });
+const rpcClient = createPublicClient({ chain: base, transport: http(process.env.BASE_RPC_URL ?? process.env.BASE_SEPOLIA_RPC_URL ?? "https://mainnet.base.org") });
 
 const CG_IDS: Record<string, string> = {
   ETH: "ethereum", BTC: "bitcoin", SOL: "solana", ARB: "arbitrum",

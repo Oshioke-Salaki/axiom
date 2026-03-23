@@ -27,7 +27,7 @@ import {
 } from "viem";
 import { privateKeyToAddress } from "viem/accounts";
 
-const BASE_SEPOLIA_CHAIN_ID = 84532;
+const BASE_CHAIN_ID = 8453;
 
 export type SignedDelegation = {
   delegate: Address;
@@ -59,7 +59,7 @@ export async function createAgentDelegations(opts: {
 }): Promise<DelegationChain> {
   const { nexusPrivateKey, sentinelAddress, chainEyeAddress, covenantAddress, covenantId } = opts;
 
-  const env = getDeleGatorEnvironment(BASE_SEPOLIA_CHAIN_ID);
+  const env = getDeleGatorEnvironment(BASE_CHAIN_ID);
   const delegationManager = env.DelegationManager as Address;
   const nexusAddress = privateKeyToAddress(nexusPrivateKey);
 
@@ -95,7 +95,7 @@ export async function createAgentDelegations(opts: {
     privateKey: nexusPrivateKey,
     delegation: sentinelDelegation as any,
     delegationManager,
-    chainId: BASE_SEPOLIA_CHAIN_ID,
+    chainId: BASE_CHAIN_ID,
     allowInsecureUnrestrictedDelegation: false,
   });
 
@@ -112,7 +112,7 @@ export async function createAgentDelegations(opts: {
     privateKey: nexusPrivateKey,
     delegation: chainEyeDelegation as any,
     delegationManager,
-    chainId: BASE_SEPOLIA_CHAIN_ID,
+    chainId: BASE_CHAIN_ID,
     allowInsecureUnrestrictedDelegation: false,
   });
 
@@ -120,7 +120,7 @@ export async function createAgentDelegations(opts: {
     sentinelDelegation: { ...sentinelDelegation, signature: sentinelSig },
     chainEyeDelegation: { ...chainEyeDelegation, signature: chainEyeSig },
     delegationManager,
-    chainId: BASE_SEPOLIA_CHAIN_ID,
+    chainId: BASE_CHAIN_ID,
   };
 }
 
@@ -130,7 +130,7 @@ export async function createAgentDelegations(opts: {
  * DelegationManager executes calls on their behalf, msg.sender matches.
  */
 export function getDelegationManagerAddress(): Address {
-  return getDeleGatorEnvironment(BASE_SEPOLIA_CHAIN_ID).DelegationManager as Address;
+  return getDeleGatorEnvironment(BASE_CHAIN_ID).DelegationManager as Address;
 }
 
 /**
